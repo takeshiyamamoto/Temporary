@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-
+#%%
 import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import pandas as pd
+import random
+import timeit
 
+#%%
 def d1(s, k, r, q, v, t):
     return (np.log(s / k) + (r - q + 0.5 * v * v) * t) / (v * np.sqrt(t))
 
@@ -16,6 +20,12 @@ def callPutSign(optionType):
     else:
         return -1.0
 
+def callPutPayoff(optionType, s, k):
+    if optionType[0].upper() == 'C':
+        return np.maximum(s - k, 0)
+    else:
+        return np.maximum(k - s, 0)
+
 def blackScholesPrice(optionType, s, k, r, q, v, t):
     cp = callPutSign(optionType)
     nd1 = norm.cdf(cp * d1(s, k, r, q, v, t))
@@ -23,6 +33,31 @@ def blackScholesPrice(optionType, s, k, r, q, v, t):
     forward = s * np.exp((r - q)* t)
     discount = np.exp(-1.0 * r * t)
     return cp * discount * (forward * nd1 - k * nd2)
+
+def blackScholesPriceMc(optionType, s, k, r, q, v, t, trial = 1000000):
+    p = []
+    random.seed(0)
+    for i in range(trial):
+        f = s * np.exp((r - q - 0.5 * v ** 2) * t + v * np.sqrt(t) * random.gauss(0, 1))
+        p.append(callPutPayoff(optionType, f, k))
+    discount = np.exp(-1.0 * r * t)
+    return discount * sum(p) / trial
+
+def blackScholesPriceMcNumpy(optionType, s, k, r, q, v, t, trial = 1000000):
+    np.random.seed(0)
+    z = np.random.standard_normal(trial)
+    f = s * np.exp((r - q - 0.5 * v ** 2) * t + v * np.sqrt(t) * z)
+    p = callPutPayoff(optionType, f, k)
+    discount = np.exp(-1.0 * r * t)
+    return discount * sum(p) / trial
+
+def blackScholesPriceMcPandas(optionType, s, k, r, q, v, t, trial = 1000000):
+    np.random.seed(0)
+    z = np.random.standard_normal(trial)
+    f = pd.DataFrame(s * np.exp((r - q - 0.5 * v ** 2) * t + v * np.sqrt(t) * z))
+    p = callPutPayoff(optionType, f, k)
+    discount = np.exp(-1.0 * r * t)
+    return discount * p.sum() / trial
 
 def blackScholesDelta(optionType, s, k, r, q, v, t):
     cp = callPutSign(optionType)
@@ -51,6 +86,7 @@ def blackScholes(optionType, s, k, r, q, v, t):
             'vega' : vega,
             'volga' : volga}
 
+#%%
 def main():
     # prepare trades
     # [optionType, Spot, Strike, Risk free yield, Dividend yield, Volatiltiy, Time to expiry]
@@ -96,6 +132,23 @@ def main():
     ax5 = fig.add_subplot(3, 2, 5)
     ax5.scatter(spots, [result.get('volga') for result in results])
     ax5.set_title('Volga')
+    plt.show()
 
+    trial = 500000
+
+    start = timeit.default_timer()
+    print(blackScholesPrice(ac[0], ac[1], ac[2], ac[3], ac[4], ac[5], ac[6]))
+    print((timeit.default_timer() - start) * 10 ** 3, 'ms')
+    start = timeit.default_timer()
+    print(blackScholesPriceMc(ac[0], ac[1], ac[2], ac[3], ac[4], ac[5], ac[6], trial))
+    print((timeit.default_timer() - start) * 10 ** 3, 'ms')
+    start = timeit.default_timer()
+    print(blackScholesPriceMcNumpy(ac[0], ac[1], ac[2], ac[3], ac[4], ac[5], ac[6], trial))
+    print((timeit.default_timer() - start) * 10 ** 3, 'ms')
+    start = timeit.default_timer()
+    print(blackScholesPriceMcPandas(ac[0], ac[1], ac[2], ac[3], ac[4], ac[5], ac[6], trial))
+    print((timeit.default_timer() - start) * 10 ** 3, 'ms')
+
+#%%
 if __name__ == "__main__":
     main()
