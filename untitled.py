@@ -31,10 +31,10 @@ def main():
     outliers_neg = np.where(var_neg[var_window:] - returns[var_window:].shift(-1) > 0, 1, 0)
     # cumulative sum of outliers
     sum_pos = pd.Series(outliers_pos).rolling(window=var_window).sum()
-    sum_pos.index = returns.index[250::]
+    sum_pos.index = returns.index[var_window:]
     sum_pos.name = 'Sum Outliers 1%'
     sum_neg = pd.Series(outliers_neg).rolling(window=var_window).sum()
-    sum_neg.index = returns.index[250::]
+    sum_neg.index = returns.index[var_window:]
     sum_neg.name = 'Sum Outliers 99%'
     sum_df = pd.concat([sum_pos, sum_neg], axis=1)
     sum_df.plot()
